@@ -1,0 +1,13 @@
+[Unit]
+Description=DDNS Rust Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ddns-rust
+ExecStart=/opt/ddns-rust/ddns-rust -c /opt/ddns-rust/config.toml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

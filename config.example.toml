@@ -1,0 +1,26 @@
+# DDNS Rust Configuration Example
+
+# Server configuration (optional)
+[server]
+host = "0.0.0.0"  # Listen address
+port = 3000       # Listen port
+log_level = "info" # Log level: error, warn, info, debug, trace
+
+# DNS Providers
+# You can configure multiple providers with different names
+
+[[providers]]
+name = "cloudflare"      # Provider name used in API path
+type = "cloudflare"      # Provider type
+# key = "your_secret_key"  # (Optional) Access key for authentication
+api_key = "your_cloudflare_api_token"  # Cloudflare API Token (recommended) or Global API Key
+zone_id = "your_zone_id" # Cloudflare Zone ID
+
+# Example: Multiple providers for different domains
+# [[providers]]
+# name = "cloudflare-home"
+# type = "cloudflare"
+# key = "another_secret_key"  # Enable authentication
+# api_key = "another_api_token"
+# zone_id = "another_zone_id"
+
