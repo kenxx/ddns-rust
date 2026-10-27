@@ -24,7 +24,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:versions
       - run: pnpm test:release
-      - run: pnpm changeset status
+      - run: pnpm changeset status --since=origin/main
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
