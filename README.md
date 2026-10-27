@@ -86,6 +86,14 @@ RUST_LOG=debug ./target/release/ddns-rust
 请求体会在 DEBUG 模式下完整缓冲后交给处理器，排查结束后请恢复 `info`。
 `RUST_LOG` 环境变量优先于配置文件。
 
+Cloudflare API 调用也会在 DEBUG 级别记录请求方法、URL、请求头和 JSON 请求体，
+以及响应状态码、响应头、完整响应体和耗时。发往 Cloudflare 的 Authorization
+Token 会脱敏；HTTP 错误和非 JSON 响应也会在解析前记录，便于定位上游故障。
+连接超时为 10 秒，每次 API 请求的总超时为 30 秒。
+
+已有 DNS 记录使用 PATCH 仅更新 IP，保留 TTL、代理状态等其他设置；
+新建 A 记录仍使用自动 TTL 和 `proxied = false`。
+
 ## API 使用
 
 ### 更新 DNS 记录
