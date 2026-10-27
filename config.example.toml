@@ -12,15 +12,18 @@ log_level = "info" # Log level: error, warn, info, debug, trace
 [[providers]]
 name = "cloudflare"      # Provider name used in API path
 type = "cloudflare"      # Provider type
-# key = "your_secret_key"  # (Optional) Access key for authentication
-api_key = "your_cloudflare_api_token"  # Cloudflare API Token (recommended) or Global API Key
+auth = "basic"          # Required: "basic" or "key"
+username = "your_username" # Required for basic authentication
+password = "your_password" # Required for basic authentication (original password)
+api_key = "your_cloudflare_api_token"  # Cloudflare API Token
 zone_id = "your_zone_id" # Cloudflare Zone ID
 
 # Example: Multiple providers for different domains
 # [[providers]]
 # name = "cloudflare-home"
 # type = "cloudflare"
-# key = "another_secret_key"  # Enable authentication
+# auth = "key"
+# key = "another_secret_key"  # Required for key authentication; sent as ?key=...
 # api_key = "another_api_token"
 # zone_id = "another_zone_id"
 
