@@ -15,19 +15,19 @@ permissions:
 jobs:
   version:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       pull-requests: write
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: pnpm
@@ -49,12 +49,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
       # Reset any checkout state left by the action. Use GITHUB_TOKEN for tags
       # so tags are always written by the standard workflow token.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: steps.changesets.outputs.hasChangesets == 'false'
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
           token: ${{ github.token }}
+      - name: Restore dependencies after clean checkout
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: pnpm install --frozen-lockfile
       - name: Tag the merged version
         id: tag
         if: steps.changesets.outputs.hasChangesets == 'false'
@@ -67,11 +70,11 @@ jobs:
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04
             name: linux-x86_64
             include_systemd: true
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04
             name: linux-arm64
             include_systemd: true
           - target: aarch64-apple-darwin
@@ -87,7 +90,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.version.outputs.tag }}
 
@@ -141,15 +144,15 @@ jobs:
 
   release:
     needs: [version, build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.version.outputs.tag }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
       - name: Extract Changesets release notes
@@ -170,14 +173,14 @@ jobs:
   docker:
     needs: version
     if: needs.version.outputs.tag != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.version.outputs.tag }}
 
