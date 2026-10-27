@@ -55,7 +55,7 @@ async fn access_log(mut request: Request, next: Next) -> Response {
 
     if log::log_enabled!(log::Level::Debug) {
         // Intentionally includes credentials for diagnosing router authentication.
-        debug!("Incoming request: {:#?}", request);
+        debug!("Incoming request: {:?}", request);
 
         let (parts, body) = request.into_parts();
         match to_bytes(body, usize::MAX).await {
