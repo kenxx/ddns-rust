@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:versions
+      - run: pnpm test:release
+      # Version PRs consume their changesets; they must not require a new one.
+      - if: github.head_ref != 'changeset-release/main'
+        run: pnpm changeset status --since=origin/main
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+      - name: Check versioning without changing the checkout
+        run: |
+          staging=$(mktemp -d)
+          cp package.json Cargo.toml Cargo.lock "$staging/"
+          cp -r .changeset scripts "$staging/"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$staging/node_modules"
+          cd "$staging"
+          pnpm version-packages
+          pnpm check:versions
+      - name: Check Docker build
+        run: docker build --tag ddns-rust:ci .

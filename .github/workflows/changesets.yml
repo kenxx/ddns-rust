@@ -1,15 +1,68 @@
-name: Release
+name: Changesets
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+  workflow_dispatch:
 
-env:
-  CARGO_TERM_COLOR: always
+concurrency:
+  group: changesets-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
+  version:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:versions
+      - run: pnpm test:release
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked
+      - name: Create or update version PR
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          github-token: ${{ secrets.RELEASE_TOKEN || github.token }}
+          version: pnpm version-packages
+          title: 'chore: release ddns-rust'
+          commit: 'chore: version ddns-rust'
+          createGithubReleases: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+      # Reset any checkout state left by the action. Use GITHUB_TOKEN for tags
+      # so tags are always written by the standard workflow token.
+      - uses: actions/checkout@v4
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+      - name: Tag the merged version
+        id: tag
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: node scripts/prepare-release.mjs
+
   build:
+    needs: version
+    if: needs.version.outputs.tag != ''
     strategy:
       matrix:
         include:
@@ -35,6 +88,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -48,7 +103,7 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --locked --release --target ${{ matrix.target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
@@ -59,6 +114,7 @@ jobs:
           cp target/${{ matrix.target }}/release/ddns-rust dist/ddns-rust/
           cp config.example.toml dist/ddns-rust/
           cp README.md dist/ddns-rust/
+          cp CHANGELOG.md dist/ddns-rust/
           if [ "${{ matrix.include_systemd }}" = "true" ]; then
             cp -r deploy dist/ddns-rust/
           fi
@@ -73,6 +129,7 @@ jobs:
           Copy-Item target/${{ matrix.target }}/release/ddns-rust.exe dist/ddns-rust/
           Copy-Item config.example.toml dist/ddns-rust/
           Copy-Item README.md dist/ddns-rust/
+          Copy-Item CHANGELOG.md dist/ddns-rust/
           cd dist
           tar -czvf ddns-rust-${{ matrix.name }}.tar.gz ddns-rust
 
@@ -83,12 +140,20 @@ jobs:
           path: dist/ddns-rust-${{ matrix.name }}.tar.gz
 
   release:
-    needs: build
+    needs: [version, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Extract Changesets release notes
+        run: node scripts/release-notes.mjs > release-notes.md
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -97,10 +162,14 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.version.outputs.tag }}
           files: artifacts/**/*.tar.gz
-          generate_release_notes: true
+          body_path: release-notes.md
+          fail_on_unmatched_files: true
 
   docker:
+    needs: version
+    if: needs.version.outputs.tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -109,6 +178,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tag }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -129,10 +200,10 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}},value=${{ needs.version.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ needs.version.outputs.tag }}
+            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v6

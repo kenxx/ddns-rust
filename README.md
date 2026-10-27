@@ -155,6 +155,45 @@ curl "http://localhost:3000/health"
 curl --user your_username "http://your-ddns-server:3000/ddns/cloudflare/home.example.com/$(curl -s ifconfig.me)"
 ```
 
+## 开发与发布
+
+需要 Rust、Node.js 22+ 和 pnpm 10.33.0（版本固定在 `packageManager`）。
+可通过 Corepack 安装对应的 pnpm：`corepack enable && corepack install`。
+
+```bash
+pnpm install --frozen-lockfile
+pnpm changeset            # 为本次改动选择 bump 类型并写变更说明
+pnpm changeset status     # 查看待发布版本计划
+pnpm check:versions       # 校验 package.json、Cargo.toml 和 Cargo.lock 一致
+pnpm test:release         # 测试版本同步和发布重试逻辑
+```
+
+发布流程：
+
+1. 功能 PR 连同 changeset 合并到 `main`。
+2. `Changesets` 工作流自动创建或更新版本 PR，生成 `CHANGELOG.md`，同步三个版本文件。
+3. 审核并合并版本 PR 后，同一个 Changesets 工作流创建 `v<version>` 标签并发布。
+4. 发布 Linux x86_64/ARM64、macOS ARM64、Windows x86_64 压缩包，以及 GHCR
+   的 amd64/arm64 镜像和版本、`latest` 标签。
+
+`package.json` 标记为 private，只用于发布工具和版本管理，不发布到 npm；不需要 NPM_TOKEN。
+本地预演版本更新可运行 `pnpm version-packages`，它会消费 changeset 并修改版本文件，
+日常开发只需提交 changeset，版本更新交给自动版本 PR。
+
+仓库需要在 Settings → Actions → General → Workflow permissions 中允许
+GitHub Actions 创建 Pull Request。默认使用 `GITHUB_TOKEN`。
+如果分支保护要求自动版本 PR 上的 CI 检查，可配置 `RELEASE_TOKEN`（PAT 或 GitHub App
+安装令牌，需要仓库 contents 和 pull requests 写权限）；默认机器人令牌创建的 PR
+不会自动触发其他工作流。也可以通过 CI 的手动运行入口选择版本 PR 分支进行检查。
+
+CI 会检查 Rust 格式、Clippy、测试、版本一致性、Changesets 状态、实际版本更新预演，
+并验证 Docker 构建。版本 PR 合并后直接运行同一工作流中的构建和发布任务，
+不依赖机器人推送标签触发新的工作流，也没有独立的 Release 工作流。
+
+发布失败时，在 Actions 中打开对应的 Changesets 运行记录，重试失败任务或重新运行
+全部任务；同一发布提交会复用已有标签。同一版本不会移动已有标签，普通后续提交
+不会再次发布旧版本。手动推送标签不再触发发布。
+
 ## License
 
 MIT
