@@ -30,3 +30,4 @@ time = { version = "0.3", features = ["formatting", "macros"] }
 
 # 错误处理
 anyhow = "1"
+base64 = "0.22"
