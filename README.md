@@ -165,6 +165,7 @@ pnpm install --frozen-lockfile
 pnpm changeset            # 为本次改动选择 bump 类型并写变更说明
 pnpm changeset status     # 查看待发布版本计划
 pnpm check:versions       # 校验 package.json、Cargo.toml 和 Cargo.lock 一致
+pnpm check:release        # 预演待发布变更；版本 PR 则校验现有版本及 CHANGELOG
 pnpm test:release         # 测试版本同步和发布重试逻辑
 ```
 
