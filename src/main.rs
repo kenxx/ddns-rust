@@ -25,8 +25,9 @@ async fn main() -> Result<()> {
 
     // Initialize logger with config log level (env var takes precedence)
     env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or(&config.server.log_level)
-    ).init();
+        env_logger::Env::default().default_filter_or(&config.server.log_level),
+    )
+    .init();
 
     info!("Loading configuration from: {}", args.config);
     info!(

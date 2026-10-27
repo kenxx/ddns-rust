@@ -10,13 +10,13 @@ COPY Cargo.toml Cargo.lock ./
 
 # Create dummy main to cache dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs
-RUN cargo build --release && rm -rf src
+RUN cargo build --locked --release && rm -rf src
 
 # Copy actual source
 COPY src ./src
 
 # Build the real application
-RUN touch src/main.rs && cargo build --release
+RUN touch src/main.rs && cargo build --locked --release
 
 # Runtime stage
 FROM alpine:3.21
